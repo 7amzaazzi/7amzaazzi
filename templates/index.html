@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Shop Management System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p>Overview of your shop's performance</p>
+</div>
+
+<div class="dashboard-grid">
+    <div class="stat-card">
+        <h3>Total Products</h3>
+        <div class="stat-value">{{ total_products }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Total Sales</h3>
+        <div class="stat-value">{{ total_sales }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Low Stock Items</h3>
+        <div class="stat-value">{{ low_stock_products }}</div>
+    </div>
+    <div class="stat-card">
+        <h3>Total Revenue</h3>
+        <div class="stat-value">${{ "%.2f"|format(total_revenue) }}</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Recent Sales</h2>
+        <a href="{{ url_for('history') }}" class="btn btn-secondary btn-sm">View All</a>
+    </div>
+    
+    {% if recent_sales %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Sale ID</th>
+                    <th>Date</th>
+                    <th>Items</th>
+                    <th>Total Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in recent_sales %}
+                <tr>
+                    <td>#{{ sale.id }}</td>
+                    <td>{{ sale.sale_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>{{ sale.sale_items|length }} item(s)</td>
+                    <td>${{ "%.2f"|format(sale.total_amount) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📊</div>
+        <p>No sales recorded yet. Start by processing your first sale!</p>
+        <a href="{{ url_for('sales') }}" class="btn btn-primary">Process Sale</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

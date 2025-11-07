@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory - Shop Management System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Inventory Management</h1>
+    <p>Manage your product inventory</p>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>Products</h2>
+        <button class="btn btn-primary" onclick="openAddModal()">Add Product</button>
+    </div>
+    
+    <div id="alert-container"></div>
+    
+    {% if products %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Price</th>
+                    <th>Stock</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="products-table">
+                {% for product in products %}
+                <tr data-product-id="{{ product.id }}">
+                    <td>{{ product.name }}</td>
+                    <td>{{ product.description or '-' }}</td>
+                    <td>${{ "%.2f"|format(product.price) }}</td>
+                    <td>{{ product.stock_quantity }}</td>
+                    <td>
+                        {% if product.stock_quantity == 0 %}
+                        <span class="badge badge-danger">Out of Stock</span>
+                        {% elif product.stock_quantity < 10 %}
+                        <span class="badge badge-warning">Low Stock</span>
+                        {% else %}
+                        <span class="badge badge-success">In Stock</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="openEditModal({{ product.id }})">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteProduct({{ product.id }})">Delete</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📦</div>
+        <p>No products in inventory. Add your first product to get started!</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add/Edit Product Modal -->
+<div id="productModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">Add Product</h2>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="productForm" onsubmit="saveProduct(event)">
+            <input type="hidden" id="product-id">
+            <div class="form-group">
+                <label for="product-name">Product Name *</label>
+                <input type="text" id="product-name" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="product-description">Description</label>
+                <textarea id="product-description" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="product-price">Price ($) *</label>
+                <input type="number" id="product-price" class="form-control" step="0.01" min="0" required>
+            </div>
+            <div class="form-group">
+                <label for="product-stock">Stock Quantity *</label>
+                <input type="number" id="product-stock" class="form-control" min="0" required>
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Product</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let editingProductId = null;
+
+function openAddModal() {
+    editingProductId = null;
+    document.getElementById('modal-title').textContent = 'Add Product';
+    document.getElementById('productForm').reset();
+    document.getElementById('product-id').value = '';
+    document.getElementById('productModal').classList.add('active');
+}
+
+function openEditModal(productId) {
+    editingProductId = productId;
+    document.getElementById('modal-title').textContent = 'Edit Product';
+    
+    fetch(`/api/products/${productId}`)
+        .then(response => response.json())
+        .then(product => {
+            document.getElementById('product-id').value = product.id;
+            document.getElementById('product-name').value = product.name;
+            document.getElementById('product-description').value = product.description || '';
+            document.getElementById('product-price').value = product.price;
+            document.getElementById('product-stock').value = product.stock_quantity;
+            document.getElementById('productModal').classList.add('active');
+        })
+        .catch(error => {
+            showAlert('Error loading product: ' + error.message, 'error');
+        });
+}
+
+function closeModal() {
+    document.getElementById('productModal').classList.remove('active');
+    editingProductId = null;
+}
+
+function saveProduct(event) {
+    event.preventDefault();
+    
+    const productData = {
+        name: document.getElementById('product-name').value,
+        description: document.getElementById('product-description').value,
+        price: parseFloat(document.getElementById('product-price').value),
+        stock_quantity: parseInt(document.getElementById('product-stock').value)
+    };
+    
+    const url = editingProductId ? `/api/products/${editingProductId}` : '/api/products';
+    const method = editingProductId ? 'PUT' : 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(productData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        showAlert(`Product ${editingProductId ? 'updated' : 'added'} successfully!`, 'success');
+        closeModal();
+        setTimeout(() => location.reload(), 1000);
+    })
+    .catch(error => {
+        showAlert('Error saving product: ' + error.message, 'error');
+    });
+}
+
+function deleteProduct(productId) {
+    if (!confirm('Are you sure you want to delete this product?')) {
+        return;
+    }
+    
+    fetch(`/api/products/${productId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        showAlert('Product deleted successfully!', 'success');
+        setTimeout(() => location.reload(), 1000);
+    })
+    .catch(error => {
+        showAlert('Error deleting product: ' + error.message, 'error');
+    });
+}
+
+function showAlert(message, type) {
+    const alertContainer = document.getElementById('alert-container');
+    const alertClass = type === 'success' ? 'alert-success' : 'alert-error';
+    alertContainer.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+    setTimeout(() => {
+        alertContainer.innerHTML = '';
+    }, 3000);
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('productModal');
+    if (event.target === modal) {
+        closeModal();
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Sales History - Shop Management System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Sales History</h1>
+    <p>View all past transactions</p>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2>All Sales</h2>
+        <a href="{{ url_for('sales') }}" class="btn btn-primary">New Sale</a>
+    </div>
+    
+    {% if sales %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Sale ID</th>
+                    <th>Date & Time</th>
+                    <th>Items Sold</th>
+                    <th>Total Amount</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in sales %}
+                <tr>
+                    <td><strong>#{{ sale.id }}</strong></td>
+                    <td>{{ sale.sale_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>{{ sale.sale_items|length }} item(s)</td>
+                    <td><strong>${{ "%.2f"|format(sale.total_amount) }}</strong></td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="viewSaleDetails({{ sale.id }})">View Details</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-state-icon">📊</div>
+        <p>No sales recorded yet. Process your first sale to see it here!</p>
+        <a href="{{ url_for('sales') }}" class="btn btn-primary">Process Sale</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Sale Details Modal -->
+<div id="saleModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Sale Details</h2>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <div id="sale-details-content">
+            <p>Loading...</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function viewSaleDetails(saleId) {
+    fetch(`/api/sales`)
+        .then(response => response.json())
+        .then(sales => {
+            const sale = sales.find(s => s.id === saleId);
+            if (sale) {
+                displaySaleDetails(sale);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading sale details:', error);
+        });
+}
+
+function displaySaleDetails(sale) {
+    let itemsHtml = '';
+    let subtotal = 0;
+    
+    sale.items.forEach(item => {
+        const itemSubtotal = item.quantity * item.price_at_sale;
+        subtotal += itemSubtotal;
+        
+        itemsHtml += `
+            <div class="sale-item">
+                <div class="sale-item-info">
+                    <strong>${item.product_name}</strong><br>
+                    <small>$${item.price_at_sale.toFixed(2)} × ${item.quantity}</small>
+                </div>
+                <div style="text-align: right;">
+                    <strong>$${itemSubtotal.toFixed(2)}</strong>
+                </div>
+            </div>
+        `;
+    });
+    
+    const detailsHtml = `
+        <div style="margin-bottom: 1rem;">
+            <p><strong>Sale ID:</strong> #${sale.id}</p>
+            <p><strong>Date:</strong> ${sale.sale_date}</p>
+        </div>
+        
+        <h3 style="color: var(--primary-green); margin-bottom: 1rem;">Items Sold</h3>
+        ${itemsHtml}
+        
+        <div class="sale-summary" style="margin-top: 1rem;">
+            <div class="sale-summary-row sale-summary-total">
+                <span>Total Amount:</span>
+                <span>$${sale.total_amount.toFixed(2)}</span>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('sale-details-content').innerHTML = detailsHtml;
+    document.getElementById('saleModal').classList.add('active');
+}
+
+function closeModal() {
+    document.getElementById('saleModal').classList.remove('active');
+}
+
+window.onclick = function(event) {
+    const modal = document.getElementById('saleModal');
+    if (event.target === modal) {
+        closeModal();
+    }
+}
+</script>
+{% endblock %}
